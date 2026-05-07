@@ -1,41 +1,79 @@
- const apiKey = "eb3e3266efd53409d703de8f80864799";
-        const apiUrl = "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
+ const apiKey = '93887dfea0f751980d52e9943be35c96'; 
+const searchBtn = document.getElementById('search-btn');
+const cityInput = document.getElementById('city-input');
 
-        const searchBox = document.querySelector(".search input");
-        const searchBtn = document.querySelector(".search button");
-        const weatherIcon = document.querySelector(".weathericon");
+// Event Listeners
+searchBtn.addEventListener('click', () => {
+    const city = cityInput.value;
+    if (city) {
+        getWeatherData(city);
+    }
+});
 
-        async function checkWeather(city) {
-            const response = await fetch(`${apiUrl}${city}&appid=${apiKey}`);
+cityInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        getWeatherData(cityInput.value);
+    }
+});
 
-            if (response.status == 404) {
-                document.querySelector(".error").style.display = "block";
-                document.querySelector(".weather").style.display = "none";
-                return;
-            }
+async function getWeatherData(city) {
+    try {
+        // Fetch Current Weather
+        const response = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`
+        );
+        
+        if (!response.ok) throw new Error('City not found');
+        
+        const data = await response.json();
+        updateUI(data);
+        getForecast(data.coord.lat, data.coord.lon);
+        
+    } catch (error) {
+        alert(error.message);
+    }
+}
 
-            var data = await response.json();
+function updateUI(data) {
+    document.getElementById('city-name').innerText = `${data.name}, ${data.sys.country}`;
+    document.getElementById('temperature').innerText = `${Math.round(data.main.temp)}°C`;
+    document.getElementById('humidity').innerText = `${data.main.humidity}%`;
+    document.getElementById('wind-speed').innerText = `${data.wind.speed} km/h`;
+    document.getElementById('description').innerText = data.weather[0].description;
+    
+    const iconCode = data.weather[0].icon;
+    document.getElementById('weather-icon').src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+    
+    // Simple date formatting
+    const now = new Date();
+    document.getElementById('date').innerText = now.toLocaleDateString('en-US', { 
+        weekday: 'long', month: 'long', day: 'numeric' 
+    });
+}
 
-            document.querySelector(".city").innerHTML = data.name;
-            document.querySelector(".temp").innerHTML = Math.round(data.main.temp) + "°c";
-            document.querySelector(".humidity").innerHTML = data.main.humidity + "%";
-            document.querySelector(".wind").innerHTML = data.wind.speed + " Km/hr";
+async function getForecast(lat, lon) {
+    const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`
+    );
+    const data = await response.json();
+    const container = document.getElementById('forecast-container');
+    container.innerHTML = ''; // Clear previous
 
-            if (data.weather[0].main === "Cloudy")
-               weatherIcon.src ="image copy.png";
-            else if (data.weather[0].main === "Clear")
-                weatherIcon.src ="clear-sky.png";
-            else if (data.weather[0].main === "Rain")
-                weatherIcon.src ="thunder ico.png";
-            else if (data.weather[0].main === "Drizzle")
-                weatherIcon.src ="windy.png";
-            else if (data.weather[0].main === "Mist")
-                weatherIcon.src ="foggy_3621514.png";
+    // Filter for 12:00 PM readings to get 1 per day
+    const dailyData = data.list.filter(reading => reading.dt_txt.includes("12:00:00"));
 
-            document.querySelector(".weather").style.display = "block";
-            document.querySelector(".error").style.display = "none";
-        }
+    dailyData.forEach(day => {
+        const date = new Date(day.dt * 1000).toLocaleDateString('en-US', { weekday: 'short' });
+        const item = document.createElement('div');
+        item.classList.add('forecast-item');
+        item.innerHTML = `
+            <p>${date}</p>
+            <img src="https://openweathermap.org/img/wn/${day.weather[0].icon}.png" alt="icon">
+            <p><strong>${Math.round(day.main.temp)}°C</strong></p>
+        `;
+        container.appendChild(item);
+    });
+}
 
-        searchBtn.addEventListener("click", () => {
-            checkWeather(searchBox.value);
-        });
+// Initial Call for a default city
+window.onload = () => getWeatherData('New York');
